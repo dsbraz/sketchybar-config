@@ -1,0 +1,67 @@
+#!/bin/bash
+export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+
+sketchybar --bar position=top height=30 notch_display_height=33 \
+  color=0x261c1c1e blur_radius=10 padding_left=12 padding_right=12 \
+  display=all sticky=on topmost=window shadow=off
+
+sketchybar --default \
+  icon.font=".AppleSystemUIFont:Bold:13.0" label.font=".AppleSystemUIFont:Bold:13.0" \
+  icon.color=0xffa1a1aa label.color=0xfff5f5f7 \
+  padding_left=6 padding_right=6 \
+  icon.padding_left=4 icon.padding_right=4 \
+  label.padding_left=4 label.padding_right=4 \
+  background.height=24 background.corner_radius=6
+
+# Discover native Spaces across the currently connected displays.
+sketchybar --add item spaces_observer left \
+  --set spaces_observer drawing=off updates=on update_freq=3 \
+    script="$PLUGIN_DIR/sync_spaces.sh" \
+  --subscribe spaces_observer space_change display_change system_woke
+
+sketchybar --add item front_app left \
+  --set front_app icon.drawing=on icon.width=24 icon.background.drawing=on \
+    icon.background.image.scale=0.65 \
+    label="" label.max_chars=50 padding_left=14 \
+    update_freq=2 script="$PLUGIN_DIR/front_app.sh" \
+  --subscribe front_app front_app_switched space_change system_woke
+
+sketchybar --add item clock right \
+  --set clock icon.drawing=off update_freq=15 script="$PLUGIN_DIR/clock.sh"
+
+sketchybar --add event now_playing_change \
+  --add item now_playing right \
+  --set now_playing drawing=off updates=on icon="♪" padding_left=12 \
+    label.max_chars=32 scroll_texts=off update_freq=10 \
+    script="$PLUGIN_DIR/now_playing.sh" \
+  --subscribe now_playing now_playing_change system_woke
+
+for metric in cpu memory ssd; do
+  case "$metric" in cpu) title=CPU ;; memory) title=MEM ;; ssd) title=SSD ;; esac
+  sketchybar --add item "$metric" right \
+    --set "$metric" icon="$title" label="—" padding_left=3 padding_right=3 \
+      icon.font=".AppleSystemUIFont:Bold:8.0" icon.color=0xffc7c7cc \
+      icon.width=0 icon.align=center icon.y_offset=7 \
+      icon.padding_left=32 icon.padding_right=0 \
+      label.font=".AppleSystemUIFont:Bold:8.0" label.width=32 label.align=center \
+      label.y_offset=-6 label.padding_left=0 label.padding_right=0
+done
+sketchybar --set cpu update_freq=5 script="$PLUGIN_DIR/compact_usage.sh" \
+  --subscribe cpu system_woke \
+  --set ssd update_freq=60 script="$PLUGIN_DIR/ssd.sh" \
+  --subscribe ssd system_woke \
+  --reorder clock ssd memory cpu now_playing
+
+sketchybar --update
+
+if ! pgrep -f '[s]ketchybar-now-playing daemon --event now_playing_change' >/dev/null 2>&1; then
+  "$CONFIG_DIR/bin/sketchybar-now-playing" daemon --event now_playing_change \
+    >>/private/tmp/sketchybar-now-playing.log 2>&1 &
+fi
+
+# Yield the top edge to the native auto-hiding menu bar.
+if command -v sketchybar-toggle >/dev/null 2>&1; then
+  pkill -x sketchybar-toggle 2>/dev/null || true
+  sketchybar-toggle --trigger-zone 2 --menu-bar-height 33 --debounce 300 &
+fi

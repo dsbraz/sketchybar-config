@@ -1,0 +1,13 @@
+# Generated binaries and local files
+/bin/*
+!/bin/sketchybar-now-playing.LICENSE
+.DS_Store
+*.log
+# Inactive experiments retained locally
+/icons/
+/src/metrics_icons.m
+/plugins/codexbar.sh
+/plugins/space_apps.sh
+/plugins/volume.sh
+/plugins/system_usage.sh
+/plugins/battery.sh
