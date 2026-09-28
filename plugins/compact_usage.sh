@@ -1,12 +1,11 @@
 #!/bin/sh
-read -r cpu memory <<EOF
+read -r cpu gpu <<EOF
 $("$CONFIG_DIR/bin/system_usage")
 EOF
-sketchybar --set cpu label="${cpu:--}%" --set memory label="${memory:--}%"
 
 # Graph samples use a fixed 0..1 scale for percentage usage.
-for metric in cpu memory; do
-  case "$metric" in cpu) value=$cpu ;; memory) value=$memory ;; esac
+for metric in cpu gpu; do
+  case "$metric" in cpu) value=$cpu ;; gpu) value=$gpu ;; esac
   sample=$(LC_ALL=C awk -v value="$value" 'BEGIN {
     if (value !~ /^[0-9]+([.][0-9]+)?$/) exit 1
     value /= 100

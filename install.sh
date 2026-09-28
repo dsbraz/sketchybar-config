@@ -6,7 +6,7 @@ if [ "$(uname -m)" != arm64 ]; then
   exit 1
 fi
 mkdir -p bin
-clang -O2 -Wall -Wextra src/system_usage.c -o bin/system_usage
+clang -O2 -Wall -Wextra src/system_usage.c -framework IOKit -framework CoreFoundation -o bin/system_usage
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 asset=sketchybar-now-playing-aarch64-apple-darwin

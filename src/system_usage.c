@@ -1,5 +1,6 @@
 #include <mach/mach.h>
-#include <sys/sysctl.h>
+#include <IOKit/IOKitLib.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -8,6 +9,31 @@ static int cpu(host_cpu_load_info_data_t *value) {
   mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
   return host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO,
                          (host_info_t)value, &count) == KERN_SUCCESS;
+}
+
+// Driver-provided utilization; unavailable statistics must not appear as zero.
+static double gpu(void) {
+  io_iterator_t iterator;
+  if (IOServiceGetMatchingServices(kIOMainPortDefault,
+      IOServiceMatching("IOAccelerator"), &iterator) != KERN_SUCCESS) return -1;
+  double usage = -1;
+  io_object_t service;
+  while ((service = IOIteratorNext(iterator))) {
+    CFTypeRef stats = IORegistryEntryCreateCFProperty(service,
+      CFSTR("PerformanceStatistics"), kCFAllocatorDefault, 0);
+    if (stats && CFGetTypeID(stats) == CFDictionaryGetTypeID()) {
+      CFTypeRef value = CFDictionaryGetValue((CFDictionaryRef)stats,
+        CFSTR("Device Utilization %"));
+      double sample;
+      if (value && CFGetTypeID(value) == CFNumberGetTypeID() &&
+          CFNumberGetValue((CFNumberRef)value, kCFNumberDoubleType, &sample) &&
+          sample >= 0 && sample <= 100 && sample > usage) usage = sample;
+    }
+    if (stats) CFRelease(stats);
+    IOObjectRelease(service);
+  }
+  IOObjectRelease(iterator);
+  return usage;
 }
 
 int main(void) {
@@ -21,18 +47,10 @@ int main(void) {
     total += delta;
     if (i == CPU_STATE_IDLE) idle = delta;
   }
-  vm_statistics64_data_t vm;
-  mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
-  uint64_t memory = 0;
-  size_t length = sizeof(memory);
-  if (host_statistics64(mach_host_self(), HOST_VM_INFO64,
-                        (host_info64_t)&vm, &count) != KERN_SUCCESS ||
-      sysctlbyname("hw.memsize", &memory, &length, NULL, 0) || !memory || !total)
-    return 1;
-  // App memory (excluding purgeable pages), wired memory and compressed memory.
-  uint64_t app = vm.internal_page_count > vm.purgeable_count
-    ? vm.internal_page_count - vm.purgeable_count : 0;
-  uint64_t used = (app + vm.wire_count + vm.compressor_page_count) * vm_kernel_page_size;
-  printf("%.0f %.0f\n", 100.0 * (total - idle) / total, 100.0 * used / memory);
+  if (!total) return 1;
+  printf("%.0f ", 100.0 * (total - idle) / total);
+  double graphics = gpu();
+  if (graphics < 0) puts("-");
+  else printf("%.0f\n", graphics);
   return 0;
 }

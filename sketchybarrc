@@ -3,7 +3,7 @@ export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
 sketchybar --bar position=top height=30 notch_display_height=33 \
-  color=0xff242426 blur_radius=0 padding_left=12 padding_right=12 \
+  color=0xb3242426 blur_radius=20 margin=6 corner_radius=6 padding_left=0 padding_right=0 \
   display=all sticky=on topmost=on shadow=off
 
 sketchybar --default \
@@ -15,7 +15,7 @@ sketchybar --default \
   background.height=24 background.corner_radius=6
 
 sketchybar --add item apple left \
-  --set apple icon="" icon.font=".AppleSystemUIFont:Regular:21.0" \
+  --set apple padding_left=6 icon="" icon.font=".AppleSystemUIFont:Regular:21.0" \
     icon.color=0xfff5f5f7 label.drawing=off
 
 # Discover native Spaces across the currently connected displays.
@@ -29,7 +29,7 @@ sketchybar --add item front_app left \
     icon.background.image.scale=0.65 \
     label="" label.max_chars=50 padding_left=14 \
     update_freq=2 script="$PLUGIN_DIR/front_app.sh" \
-  --subscribe front_app front_app_switched space_change system_woke
+  --subscribe front_app front_app_switched space_change display_change system_woke
 
 sketchybar --add item clock right \
   --set clock icon.drawing=off update_freq=15 script="$PLUGIN_DIR/clock.sh"
@@ -41,21 +41,19 @@ sketchybar --add event now_playing_change \
     script="$PLUGIN_DIR/now_playing.sh" \
   --subscribe now_playing now_playing_change system_woke
 
-for metric in cpu memory; do
-  case "$metric" in cpu) glyph="" ;; memory) glyph="" ;; esac
+for metric in cpu gpu; do
+  case "$metric" in cpu) glyph="" ;; gpu) glyph="󰢮" ;; esac
   sketchybar --add graph "$metric" right 40 \
-    --set "$metric" icon="$glyph" label="—" padding_left=3 padding_right=3 \
+    --set "$metric" icon="$glyph" label.drawing=off padding_left=3 padding_right=3 \
       icon.font="JetBrainsMono Nerd Font:Regular:11.0" icon.color=0xffc7c7cc \
       icon.width=18 icon.align=center icon.y_offset=0 \
       icon.padding_left=2 icon.padding_right=2 \
-      label.font=".AppleSystemUIFont:Bold:11.0" label.width=34 label.align=center \
-      label.y_offset=0 label.padding_left=2 label.padding_right=6 \
       graph.color=0xffc7c7cc graph.fill_color=0x33c7c7cc graph.line_width=1.0 \
       background.drawing=on background.color=0x00000000 background.height=22
 done
 sketchybar --set cpu update_freq=5 script="$PLUGIN_DIR/compact_usage.sh" \
   --subscribe cpu system_woke \
-  --reorder clock memory cpu now_playing
+  --reorder clock gpu cpu now_playing
 
 sketchybar --update
 
