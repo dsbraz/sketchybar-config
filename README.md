@@ -1,6 +1,6 @@
 # SketchyBar config
 
-Configuração pessoal para macOS 27 em Apple Silicon, com fonte nativa em negrito, fundo escuro contínuo com 70% de opacidade, margem lateral de 6 pt e cantos arredondados sobre a barra de menus nativa.
+Configuração pessoal para macOS 27 em Apple Silicon, com fonte nativa em negrito, fundo escuro contínuo com 60% de opacidade, margem lateral de 8 pt e cantos arredondados sobre a barra de menus nativa.
 
 - Spaces nativos atualizados dinamicamente e título/ícone do app em foco à esquerda.
 - Now Playing sem ações de mouse; mostra a sessão selecionada pelo sistema.
@@ -37,7 +37,7 @@ brew services start sketchybar
 
 O instalador compila `system_usage` e baixa o [sketchybar-now-playing](https://github.com/wthrajat/sketchybar-now-playing) v0.4.3, verificando o SHA-256 do pacote. Os binários não são versionados. A licença MIT do helper está em `bin/sketchybar-now-playing.LICENSE`.
 
-Mantenha a barra de menus nativa sempre visível: ela reserva o espaço das janelas. A SketchyBar a cobre com `topmost=on` e uma faixa escura contínua com 70% de opacidade, com margem lateral de 6 pt e cantos de raio 6 pt. Para aplicar alterações posteriores: `sketchybar --reload`.
+Mantenha a barra de menus nativa sempre visível: ela reserva o espaço das janelas. A SketchyBar a cobre com `topmost=on` e uma faixa escura contínua com 60% de opacidade, com margem lateral de 8 pt e cantos de raio 6 pt. Para aplicar alterações posteriores: `sketchybar --reload`.
 
 O helper local em `src/sketchybar-toggle` deriva da versão 0.5.0 upstream e adiciona saída animada com cancelamento em movimentos rápidos. `bash build-toggle.sh` recompila a cópia local; o binário do Homebrew fica intacto e serve como fallback. A alteração mantém o monitoramento de mouse original, sem adicionar polling ou observação de janelas. Veja `src/sketchybar-toggle/LOCAL-CHANGES.md`.
 
@@ -45,6 +45,6 @@ O helper local em `src/sketchybar-toggle` deriva da versão 0.5.0 upstream e adi
 
 CPU usa uma amostra de 250 ms a cada 5 segundos. GPU lê `Device Utilization %` das estatísticas do driver via IOKit, sem sudo, no mesmo intervalo. Essa chave depende do driver; quando indisponível, o gráfico não recebe amostra em vez de indicar zero. Os gráficos usam escala fixa de 0 a 100%.
 
-A barra usa altura de 30 pt (33 pt na tela com notch), fundo escuro contínuo com 70% de opacidade e blur de raio 20. As colunas das métricas têm largura fixa para manter o alinhamento.
+A barra usa altura de 30 pt (33 pt na tela com notch), fundo escuro contínuo com 60% de opacidade e blur de raio 30. As colunas das métricas têm largura fixa para manter o alinhamento.
 
 Spaces e título da janela dependem do Hammerspoon. O layout considera os monitores conectados, mas a validação visual foi feita na tela interna. A integração de mídia e a fonte nativa dependem do comportamento do macOS.

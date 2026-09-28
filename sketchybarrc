@@ -3,7 +3,7 @@ export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
 sketchybar --bar position=top height=30 notch_display_height=33 \
-  color=0xb3242426 blur_radius=20 margin=6 corner_radius=6 padding_left=0 padding_right=0 \
+  color=0x99242426 blur_radius=30 margin=8 corner_radius=6 padding_left=0 padding_right=0 \
   display=all sticky=on topmost=on shadow=off
 
 sketchybar --default \
