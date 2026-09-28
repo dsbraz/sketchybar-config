@@ -15,4 +15,5 @@ printf '%s  %s\n' 3a97570734b4423609a722b7886dd0a39ba71b025b5fb5c79e081e1d2cb161
 tar -xzf "$work/package.tar.gz" -C "$work"
 install -m 755 "$work/$asset/bin/sketchybar-now-playing" bin/sketchybar-now-playing
 install -m 644 "$work/$asset/LICENSE" bin/sketchybar-now-playing.LICENSE
+bash build-toggle.sh
 echo "Helpers ready. Start with: brew services start sketchybar"

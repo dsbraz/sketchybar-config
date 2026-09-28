@@ -3,8 +3,8 @@ export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
 sketchybar --bar position=top height=30 notch_display_height=33 \
-  color=0x261c1c1e blur_radius=10 padding_left=12 padding_right=12 \
-  display=all sticky=on topmost=window shadow=off
+  color=0xff1c1c1e blur_radius=0 padding_left=12 padding_right=12 \
+  display=all sticky=on topmost=on shadow=off
 
 sketchybar --default \
   icon.font=".AppleSystemUIFont:Bold:13.0" label.font=".AppleSystemUIFont:Bold:13.0" \
@@ -60,8 +60,12 @@ if ! pgrep -f '[s]ketchybar-now-playing daemon --event now_playing_change' >/dev
     >>/private/tmp/sketchybar-now-playing.log 2>&1 &
 fi
 
-# Yield the top edge to the native auto-hiding menu bar.
-if command -v sketchybar-toggle >/dev/null 2>&1; then
+# Reveal the always-visible native menu bar when the pointer reaches the top.
+TOGGLE_BIN="$CONFIG_DIR/bin/sketchybar-toggle"
+if [ ! -x "$TOGGLE_BIN" ]; then
+  TOGGLE_BIN="$(command -v sketchybar-toggle || true)"
+fi
+if [ -n "$TOGGLE_BIN" ]; then
   pkill -x sketchybar-toggle 2>/dev/null || true
-  sketchybar-toggle --trigger-zone 2 --menu-bar-height 33 --debounce 300 &
+  "$TOGGLE_BIN" --trigger-zone 30 --menu-bar-height 33 --debounce 300 &
 fi
