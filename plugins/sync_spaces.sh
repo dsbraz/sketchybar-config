@@ -29,5 +29,5 @@ while IFS= read -r name; do
 done < <(printf '%s' "$current" | jq -r '.[] | select(test("^space\\.[0-9]+$"))')
 
 if [ "${#args[@]}" -gt 0 ]; then
-  sketchybar "${args[@]}" --reorder "${order[@]}" front_app
+  sketchybar "${args[@]}" --reorder apple "${order[@]}" front_app
 fi

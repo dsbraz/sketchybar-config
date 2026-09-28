@@ -10,4 +10,4 @@ case $(date +%m) in
   10) month=out ;; 11) month=nov ;; 12) month=dez ;;
 esac
 day=$(date +%d | sed 's/^0//')
-sketchybar --set "$NAME" label="$weekday, $day de $month de $(date '+%Y  ·  %H:%M')"
+sketchybar --set "$NAME" label="$weekday, $day de $month  ·  $(date '+%H:%M')"

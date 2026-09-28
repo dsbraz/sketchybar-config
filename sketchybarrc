@@ -3,7 +3,7 @@ export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
 sketchybar --bar position=top height=30 notch_display_height=33 \
-  color=0xff1c1c1e blur_radius=0 padding_left=12 padding_right=12 \
+  color=0xff242426 blur_radius=0 padding_left=12 padding_right=12 \
   display=all sticky=on topmost=on shadow=off
 
 sketchybar --default \
@@ -13,6 +13,10 @@ sketchybar --default \
   icon.padding_left=4 icon.padding_right=4 \
   label.padding_left=4 label.padding_right=4 \
   background.height=24 background.corner_radius=6
+
+sketchybar --add item apple left \
+  --set apple icon="" icon.font=".AppleSystemUIFont:Regular:21.0" \
+    icon.color=0xfff5f5f7 label.drawing=off
 
 # Discover native Spaces across the currently connected displays.
 sketchybar --add item spaces_observer left \
@@ -37,21 +41,21 @@ sketchybar --add event now_playing_change \
     script="$PLUGIN_DIR/now_playing.sh" \
   --subscribe now_playing now_playing_change system_woke
 
-for metric in cpu memory ssd; do
-  case "$metric" in cpu) glyph="" ;; memory) glyph="󰍛" ;; ssd) glyph="󰋊" ;; esac
-  sketchybar --add item "$metric" right \
+for metric in cpu memory; do
+  case "$metric" in cpu) glyph="" ;; memory) glyph="" ;; esac
+  sketchybar --add graph "$metric" right 40 \
     --set "$metric" icon="$glyph" label="—" padding_left=3 padding_right=3 \
       icon.font="JetBrainsMono Nerd Font:Regular:11.0" icon.color=0xffc7c7cc \
-      icon.width=0 icon.align=center icon.y_offset=7 \
-      icon.padding_left=32 icon.padding_right=0 \
-      label.font=".AppleSystemUIFont:Bold:8.0" label.width=32 label.align=center \
-      label.y_offset=-6 label.padding_left=0 label.padding_right=0
+      icon.width=18 icon.align=center icon.y_offset=0 \
+      icon.padding_left=2 icon.padding_right=2 \
+      label.font=".AppleSystemUIFont:Bold:11.0" label.width=34 label.align=center \
+      label.y_offset=0 label.padding_left=2 label.padding_right=6 \
+      graph.color=0xffc7c7cc graph.fill_color=0x33c7c7cc graph.line_width=1.0 \
+      background.drawing=on background.color=0x00000000 background.height=22
 done
 sketchybar --set cpu update_freq=5 script="$PLUGIN_DIR/compact_usage.sh" \
   --subscribe cpu system_woke \
-  --set ssd update_freq=60 script="$PLUGIN_DIR/ssd.sh" \
-  --subscribe ssd system_woke \
-  --reorder clock ssd memory cpu now_playing
+  --reorder clock memory cpu now_playing
 
 sketchybar --update
 
