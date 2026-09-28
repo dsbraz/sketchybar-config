@@ -4,7 +4,7 @@ Configuração pessoal para macOS 27 em Apple Silicon, com fonte nativa em negri
 
 - Spaces nativos atualizados dinamicamente e título/ícone do app em foco à esquerda.
 - Now Playing sem ações de mouse; mostra a sessão selecionada pelo sistema.
-- CPU, MEM e SSD em duas linhas, centralizadas, com fonte de 8 pt.
+- CPU, MEM e SSD com ícones da JetBrainsMono Nerd Font de 11 pt e percentuais de 8 pt abaixo, centralizados.
 - Data abreviada em português e horário à direita.
 - SketchyBar cede o topo à barra nativa com `sketchybar-toggle` (debounce de 300 ms).
 

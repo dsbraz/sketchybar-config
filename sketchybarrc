@@ -38,10 +38,10 @@ sketchybar --add event now_playing_change \
   --subscribe now_playing now_playing_change system_woke
 
 for metric in cpu memory ssd; do
-  case "$metric" in cpu) title=CPU ;; memory) title=MEM ;; ssd) title=SSD ;; esac
+  case "$metric" in cpu) glyph="" ;; memory) glyph="󰍛" ;; ssd) glyph="󰋊" ;; esac
   sketchybar --add item "$metric" right \
-    --set "$metric" icon="$title" label="—" padding_left=3 padding_right=3 \
-      icon.font=".AppleSystemUIFont:Bold:8.0" icon.color=0xffc7c7cc \
+    --set "$metric" icon="$glyph" label="—" padding_left=3 padding_right=3 \
+      icon.font="JetBrainsMono Nerd Font:Regular:11.0" icon.color=0xffc7c7cc \
       icon.width=0 icon.align=center icon.y_offset=7 \
       icon.padding_left=32 icon.padding_right=0 \
       label.font=".AppleSystemUIFont:Bold:8.0" label.width=32 label.align=center \
