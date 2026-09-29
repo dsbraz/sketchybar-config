@@ -6,6 +6,7 @@ snapshot=$(/opt/homebrew/bin/hs -c '
   local title = win and win:title() or ""
   if title == "" then title = app:name() end
   local menuWidth
+  local deferUpdate = false
   pcall(function()
     local menu = hs.axuielement.applicationElement(app):attributeValue("AXMenuBar")
     if not menu then return end
@@ -28,8 +29,33 @@ snapshot=$(/opt/homebrew/bin/hs -c '
       end
     end
   end)
-  print(hs.json.encode({app=app:name(), title=title, menu_width=menuWidth}))
+  if menuWidth then
+    local cover = dofile(os.getenv("HOME") .. "/.config/sketchybar/plugins/menu_cover.lua")
+    _sketchybarMenuCover = _sketchybarMenuCover or {}
+    local delay
+    menuWidth, delay = cover.update(_sketchybarMenuCover, menuWidth, app:pid(),
+      hs.timer.absoluteTime() / 1e9)
+    deferUpdate = delay ~= nil
+    if _sketchybarMenuCoverTimer then
+      _sketchybarMenuCoverTimer:stop()
+      _sketchybarMenuCoverTimer = nil
+    end
+    if delay then
+      _sketchybarMenuCoverTimer = hs.timer.doAfter(delay + 0.01, function()
+        _sketchybarMenuCoverTimer = nil
+        _sketchybarMenuCoverRefresh = hs.task.new("/opt/homebrew/bin/sketchybar",
+          function() _sketchybarMenuCoverRefresh = nil end,
+          {"--trigger", "front_app_switched"})
+        _sketchybarMenuCoverRefresh:start()
+      end)
+    end
+  end
+  print(hs.json.encode({app=app:name(), title=title, menu_width=menuWidth,
+    defer_update=deferUpdate}))
 ' 2>/dev/null | sed -n '/^{/p')
+# Keep the old title AND cover until the native menu transition settles.
+# Updating either first changes the bracket bounds and creates an extra step.
+printf '%s' "$snapshot" | /usr/bin/jq -e '.defer_update == false' >/dev/null || exit 0
 app=$(printf '%s' "$snapshot" | /usr/bin/jq -er '.app') || exit 0
 title=$(printf '%s' "$snapshot" | /usr/bin/jq -er '.title') || exit 0
 # A zero-layout-width anchor starts at the left edge. Its empty icon supplies
