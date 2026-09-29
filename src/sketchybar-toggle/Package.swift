@@ -8,8 +8,10 @@ let package = Package(
         .macOS(.v13)
     ],
     targets: [
+        .target(name: "NativeBridge", linkerSettings: [.linkedFramework("CoreFoundation")]),
         .target(
             name: "SketchyBarToggleCore",
+            dependencies: ["NativeBridge"],
             path: "Sources/SketchyBarToggleCore"
         ),
         .executableTarget(

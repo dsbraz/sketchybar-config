@@ -2,6 +2,64 @@ import XCTest
 @testable import SketchyBarToggleCore
 
 final class AnimatedHideTests: XCTestCase {
+    func testSmoothSlideStaysOpaqueAndWaitsBeforeHiding() {
+        var commands: [[String]] = []
+        let controller = SketchyBarController(commandRunner: { commands.append($0) }, useSmoothSlide: true)
+        controller.show()
+        XCTAssertTrue(commands[0].contains("y_offset=-32"))
+        XCTAssertTrue(commands[0].contains("background.color=0xff242426"))
+        controller.hide()
+        XCTAssertEqual(commands.last, ["--animate", "sin", "16", "--bar", "y_offset=-32"])
+        let finished = expectation(description: "smooth slide completed")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            XCTAssertFalse(commands.contains { $0.contains("hidden=on") })
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { finished.fulfill() }
+        wait(for: [finished], timeout: 1)
+        XCTAssertEqual(commands.last, ["--bar", "hidden=on", "y_offset=0"])
+    }
+
+    func testSmoothSlideReversalDoesNotJumpToStart() {
+        var commands: [[String]] = []
+        let controller = SketchyBarController(commandRunner: { commands.append($0) }, useSmoothSlide: true)
+        controller.show()
+        controller.hide()
+        commands.removeAll()
+        controller.show()
+        XCTAssertEqual(commands, [["--animate", "sin", "16", "--bar", "y_offset=0"]])
+        let finished = expectation(description: "cancelled smooth slide deadline")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { finished.fulfill() }
+        wait(for: [finished], timeout: 1)
+        XCTAssertFalse(commands.contains { $0.contains("hidden=on") })
+    }
+
+    func testFadeStartsTransparentWithoutMovingTheBar() {
+        var commands: [[String]] = []
+        let controller = SketchyBarController(commandRunner: { commands.append($0) }, useFade: true)
+        controller.show()
+        XCTAssertEqual(commands.count, 2)
+        XCTAssertTrue(commands[0].contains("background.color=0x00242426"))
+        XCTAssertTrue(commands[0].contains("hidden=off"))
+        XCTAssertTrue(commands[1].contains("background.color=0xff242426"))
+        XCTAssertTrue(commands[1].contains("icon.background.image.scale=0.65"))
+        XCTAssertFalse(commands.flatMap { $0 }.contains { $0.hasPrefix("y_offset=-") })
+    }
+
+    func testReversingFadeDoesNotResetToTransparentOrHideLater() {
+        var commands: [[String]] = []
+        let controller = SketchyBarController(commandRunner: { commands.append($0) }, useFade: true)
+        controller.show()
+        controller.hide()
+        commands.removeAll()
+        controller.show()
+        XCTAssertEqual(commands.count, 1)
+        XCTAssertTrue(commands[0].contains("background.color=0xff242426"))
+        let finished = expectation(description: "cancelled fade deadline")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { finished.fulfill() }
+        wait(for: [finished], timeout: 1)
+        XCTAssertFalse(commands.contains { $0.contains("hidden=on") })
+    }
+
     func testLayoutIsPreparedBeforeFirstVisibleFrame() {
         var prepared = false
         var commands: [[String]] = []

@@ -1,50 +1,48 @@
 # SketchyBar config
 
-Configuração pessoal para macOS 27 em Apple Silicon, com fonte nativa em negrito, fundo escuro contínuo com 60% de opacidade, margem lateral de 8 pt e cantos arredondados sobre a barra de menus nativa.
+Configuração pessoal para macOS 27 em Apple Silicon. A faixa opaca e arredondada cobre apenas o conteúdo à esquerda e os menus nativos. O lado direito fica livre.
 
-- Spaces nativos atualizados dinamicamente e título/ícone do app em foco à esquerda.
-- Now Playing sem ações de mouse; mostra a sessão selecionada pelo sistema.
-- CPU e GPU com ícones da JetBrainsMono Nerd Font de 11 pt e gráficos de utilização, sem percentuais em texto.
-- Data abreviada em português e horário à direita.
-- SketchyBar revela a barra nativa ao passar o mouse no topo, com saída animada de aproximadamente 150 ms e debounce de retorno de 300 ms.
+- Apple, Spaces nativos e ícone/título da janela em foco.
+- Barra de 32 pt, fundo de 28 pt, margem superior de 4 pt e raio de 8 pt, sem transparência ou blur.
+- Deslizamento vertical de 32 pt com curva `sin`, 16 frames (~267 ms) e debounce de retorno de 150 ms.
+- App, título, menus e Spaces são lidos pelo **SketchyBar Helper**, sem Hammerspoon.
 
 ## Instalação
 
-Requer Homebrew em `/opt/homebrew`, Command Line Tools (`xcode-select --install`) e Hammerspoon aberto com permissão de Acessibilidade. A configuração atual usa o `jq` fornecido pelo macOS em `/usr/bin/jq`.
+Requer Homebrew em `/opt/homebrew` e Command Line Tools (`xcode-select --install`).
 
 ```sh
-brew install FelixKratz/formulae/sketchybar malpern/tap/sketchybar-toggle
-brew install --cask hammerspoon
-```
-
-No Hammerspoon, habilite o IPC e instale o comando `hs` (uma vez pelo console):
-
-```lua
-require("hs.ipc")
-hs.ipc.cliInstall("/opt/homebrew")
-```
-
-Mantenha `require("hs.ipc")` no seu `~/.hammerspoon/init.lua` e recarregue o Hammerspoon. Minha configuração está em [hammerspoon-config](https://github.com/dsbraz/hammerspoon-config).
-
-Com `~/.config/sketchybar` livre (faça backup se já existir):
-
-```sh
+brew install FelixKratz/formulae/sketchybar
+# Com ~/.config/sketchybar livre:
 git clone https://github.com/dsbraz/sketchybar-config.git ~/.config/sketchybar
 cd ~/.config/sketchybar
-./install.sh
+bash build-toggle.sh
 brew services start sketchybar
 ```
 
-O instalador compila `system_usage` e baixa o [sketchybar-now-playing](https://github.com/wthrajat/sketchybar-now-playing) v0.4.3, verificando o SHA-256 do pacote. Os binários não são versionados. A licença MIT do helper está em `bin/sketchybar-now-playing.LICENSE`.
+Em **Ajustes do Sistema → Privacidade e Segurança → Acessibilidade** (nesta versão do macOS, **Device Control and Data Access**), habilite **SketchyBar Helper**. Se necessário, adicione `~/.config/sketchybar/bin/SketchyBar Helper.app`. O app é local, sem janela ou ícone no Dock, e inicia pelo `sketchybarrc`. Após recompilar, o macOS pode exigir renovar a autorização da assinatura local: remova a entrada antiga e adicione novamente o bundle atual. Se a chave estiver ligada mas o helper continuar sem acesso, `tccutil reset Accessibility com.dsbraz.sketchybar.helper` limpa somente essa autorização; recarregue a barra e habilite a entrada nova.
 
-Mantenha a barra de menus nativa sempre visível: ela reserva o espaço das janelas. A SketchyBar a cobre com `topmost=on` e uma faixa escura contínua com 60% de opacidade, com margem lateral de 8 pt e cantos de raio 6 pt. Para aplicar alterações posteriores: `sketchybar --reload`.
+Mantenha a barra de menus nativa sempre visível: ela reserva o espaço das janelas. Ative “As telas têm Spaces separados”. Para aplicar mudanças: `sketchybar --reload`.
 
-O helper local em `src/sketchybar-toggle` deriva da versão 0.5.0 upstream e adiciona saída animada com cancelamento em movimentos rápidos. `bash build-toggle.sh` recompila a cópia local; o binário do Homebrew fica intacto e serve como fallback. A alteração mantém o monitoramento de mouse original, sem adicionar polling ou observação de janelas. Veja `src/sketchybar-toggle/LOCAL-CHANGES.md`.
+## Integração nativa
 
-## Métricas e limites
+O helper deriva de [malpern/sketchybar-toggle](https://github.com/malpern/sketchybar-toggle), com alterações locais descritas em `src/sketchybar-toggle/LOCAL-CHANGES.md`.
 
-CPU usa uma amostra de 250 ms a cada 5 segundos. GPU lê `Device Utilization %` das estatísticas do driver via IOKit, sem sudo, no mesmo intervalo. Essa chave depende do driver; quando indisponível, o gráfico não recebe amostra em vez de indicar zero. Os gráficos usam escala fixa de 0 a 100%.
+- **Comunicação:** protocolo Mach da SketchyBar, com argumentos separados por NUL; títulos não passam pelo shell. Recebe `space_change`, `display_change` e `system_woke` via `mach_helper`.
+- **Menus:** AppKit e Accessibility observam app/janela/título; reconciliação a cada 250 ms cobre notificações ausentes. Crescimento imediato, redução após 400 ms estáveis; título e cobertura são enviados juntos. Não há cache por aplicativo.
+- **Spaces:** consulta somente leitura a `SLSCopyManagedDisplaySpaces` (SkyLight), sem modificar SIP. Mantém os índices Mission Control usados pela SketchyBar e verifica a topologia a cada 2 s para detectar desktops criados/removidos. Slots de tela cheia não recebem item, mas continuam contando na associação dos índices.
+- **Falhas:** IPC limita envio a 100 ms e resposta a 200 ms, resolve novamente a porta em cada pedido e mantém o último layout válido se a descoberta de Spaces falhar. Sem Acessibilidade, Spaces e animação continuam funcionando; o título usa o nome do app enquanto a permissão não for concedida.
 
-A barra usa altura de 30 pt (33 pt na tela com notch), fundo escuro contínuo com 60% de opacidade e blur de raio 30. As colunas das métricas têm largura fixa para manter o alinhamento.
+SkyLight é uma API privada do macOS: a descoberta de Spaces precisa ser revalidada em futuras atualizações do sistema. Eventos nativos reduzem intermediários, mas não garantem que o macOS exponha a geometria antes de desenhar os menus.
 
-Spaces e título da janela dependem do Hammerspoon. O layout considera os monitores conectados, mas a validação visual foi feita na tela interna. A integração de mídia e a fonte nativa dependem do comportamento do macOS.
+## Validação
+
+```sh
+swift test --package-path src/sketchybar-toggle
+bin/sketchybar-toggle --probe-native-menu
+bin/sketchybar-toggle --probe-native-spaces
+```
+
+As sondagens pelo terminal usam o contexto de permissão do terminal; valide também o helper iniciado pela própria barra. O log de inicialização fica em `/private/tmp/sketchybar-toggle.log`.
+
+Scripts de CPU/GPU e mídia permanecem disponíveis no repositório como componentes opcionais, mas não fazem parte do layout ativo. `install.sh` também prepara esses componentes. Binários e o bundle `.app` são gerados localmente e não são versionados.

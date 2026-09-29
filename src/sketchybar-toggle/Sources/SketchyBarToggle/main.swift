@@ -1,8 +1,17 @@
 import Foundation
 import AppKit
+import ApplicationServices
 import SketchyBarToggleCore
 
 let version = "0.5.0"
+
+if CommandLine.arguments.contains("--probe-native-menu") {
+    exit(NativeMenuMonitor.probe() ? 0 : 2)
+}
+
+if CommandLine.arguments.contains("--probe-native-spaces") {
+    exit(NativeSpaceMonitor.probe() ? 0 : 2)
+}
 
 // MARK: - Parse arguments
 
@@ -29,7 +38,7 @@ if config.showVersion {
 }
 
 if config.checkPermissions {
-    print("No special permissions required (v0.4.0+ uses polling instead of event taps).")
+    _ = NativeMenuMonitor.probe()
     exit(0)
 }
 
@@ -40,7 +49,21 @@ if config.setup {
 
 // MARK: - Setup
 
-let controller = SketchyBarController()
+let nativeMenu = ProcessInfo.processInfo.environment["SKETCHYBAR_NATIVE_MENU"] == "1" ? NativeMenuMonitor() : nil
+if let nativeMenu {
+    _ = nativeMenu.start()
+    if !AXIsProcessTrusted() {
+        fputs("Enable SketchyBar Helper in System Settings > Privacy & Security > Accessibility.\n", stderr)
+        _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+    }
+}
+let nativeSpaces = NativeSpaceMonitor()
+nativeSpaces.start()
+let nativeEvents = NativeBarEvents()
+if !nativeEvents.start(onChange: { nativeSpaces.refresh(); nativeMenu?.refresh() }) {
+    fputs("Could not register native SketchyBar events; reconciliation remains active.\n", stderr)
+}
+let controller = SketchyBarController(nativeMenu: nativeMenu)
 let stateMachine = BarStateMachine(
     controller: controller,
     triggerZone: config.triggerZone,
@@ -57,8 +80,14 @@ func restoreAndExit() {
     exit(0)
 }
 
-signal(SIGINT) { _ in restoreAndExit() }
-signal(SIGTERM) { _ in restoreAndExit() }
+signal(SIGINT, SIG_IGN)
+signal(SIGTERM, SIG_IGN)
+let interruptSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+let terminateSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+interruptSource.setEventHandler { restoreAndExit() }
+terminateSource.setEventHandler { restoreAndExit() }
+interruptSource.resume()
+terminateSource.resume()
 
 // Debug logging
 var debugLogFile: FileHandle?
@@ -84,8 +113,9 @@ print("sketchybar-toggle v\(version) running (trigger: \(Int(config.triggerZone)
 if config.debug { print("Debug logging to /tmp/sketchybar-toggle-debug.log") }
 print("Press Ctrl+C to stop.")
 
-// Quick prerequisite check — warn but don't block
-do {
+// The native overlay deliberately keeps the macOS menu bar visible.
+// Upstream prerequisite checks only apply to the standalone toggle mode.
+if nativeMenu == nil {
     let checker = PrerequisiteChecker()
     let report = checker.check()
     if !report.allPassed {
@@ -112,7 +142,9 @@ func printUsage() {
       --trigger-zone <px>       Pixels from top of screen to trigger hide (default: 10)
       --menu-bar-height <px>    Pixels from top defining menu bar zone (default: 50)
       --debounce <ms>           Debounce delay in milliseconds (default: 150)
-      --check-permissions       Check permissions (no longer needed in v0.4.0+)
+      --check-permissions       Check Accessibility for native menus
+      --probe-native-menu       Read native menu permission and geometry
+      --probe-native-spaces     Read native Spaces without changing the bar
       --setup                   Check prerequisites and show auto-start instructions
       --debug                   Log events to /tmp/sketchybar-toggle-debug.log
       --version                 Print version and exit

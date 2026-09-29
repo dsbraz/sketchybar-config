@@ -1,8 +1,7 @@
 #!/bin/bash
 export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-PLUGIN_DIR="$CONFIG_DIR/plugins"
 
-sketchybar --bar position=top height=30 notch_display_height=32 \
+sketchybar --bar position=top height=32 notch_display_height=32 \
   color=0x00000000 blur_radius=0 margin=0 corner_radius=0 padding_left=8 padding_right=0 \
   display=all sticky=on topmost=on shadow=off
 
@@ -20,17 +19,14 @@ sketchybar --add item apple left \
 
 # Discover native Spaces across the currently connected displays.
 sketchybar --add item spaces_observer left \
-  --set spaces_observer drawing=off updates=on update_freq=3 \
-    script="$PLUGIN_DIR/sync_spaces.sh" \
-  --subscribe spaces_observer space_change display_change system_woke
+  --set spaces_observer drawing=off updates=on update_freq=0
 
 sketchybar --add item front_app left \
   --set front_app icon.drawing=on icon.width=24 icon.background.drawing=on \
     icon.background.image.scale=0.65 \
     label="" label.max_chars=50 label.padding_right=20 scroll_texts=on \
     padding_left=14 padding_right=12 \
-    update_freq=2 script="$PLUGIN_DIR/front_app.sh" \
-  --subscribe front_app front_app_switched space_change display_change system_woke
+    updates=off update_freq=0
 
 # Cover both the left-side content and the active application's native menus.
 sketchybar --add item left_edge left \
@@ -50,12 +46,17 @@ sketchybar --add item left_edge left \
 sketchybar --update
 
 # Reveal the always-visible native menu bar when the pointer reaches the top.
-TOGGLE_BIN="$CONFIG_DIR/bin/sketchybar-toggle"
-if [ ! -x "$TOGGLE_BIN" ]; then
-  TOGGLE_BIN="$(command -v sketchybar-toggle || true)"
+if [ ! -x "$CONFIG_DIR/bin/SketchyBar Helper.app/Contents/MacOS/sketchybar-toggle" ]; then
+  echo "Build the native helper first: bash $CONFIG_DIR/build-toggle.sh" >&2
+  exit 1
 fi
-if [ -n "$TOGGLE_BIN" ]; then
-  pkill -x sketchybar-toggle 2>/dev/null || true
-  SKETCHYBAR_BEFORE_SHOW="$PLUGIN_DIR/front_app.sh" \
-    "$TOGGLE_BIN" --trigger-zone 30 --menu-bar-height 33 --debounce 150 &
-fi
+pkill -x sketchybar-toggle 2>/dev/null || true
+# Wait for the previous helper to release its event port and restore visibility.
+for attempt in {1..30}; do
+  pgrep -x sketchybar-toggle >/dev/null || break
+  sleep 0.1
+done
+/usr/bin/open -g "$CONFIG_DIR/bin/SketchyBar Helper.app" \
+  --env SKETCHYBAR_TRANSITION=smooth-slide --env SKETCHYBAR_NATIVE_MENU=1 \
+  --stdout /private/tmp/sketchybar-toggle.log --stderr /private/tmp/sketchybar-toggle.log \
+  --args --trigger-zone 30 --menu-bar-height 33 --debounce 150
