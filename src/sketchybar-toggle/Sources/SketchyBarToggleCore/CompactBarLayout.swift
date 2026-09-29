@@ -82,10 +82,10 @@ public final class CompactBarLayout {
             arguments += ["--set", item, "display=\(display)", "width=0", "y_offset=0",
                           "padding_left=2", "padding_right=0", "icon=", "icon.width=\(widths[display]!)",
                           "icon.padding_left=0", "icon.padding_right=0", "label.drawing=off",
-                          "background.drawing=off", "icon.background.drawing=on", "icon.background.color=0xff242426",
+                          "background.drawing=off", "icon.background.drawing=on", "icon.background.color=0x33242426",
                           "icon.background.height=30", "icon.background.corner_radius=10",
                           "icon.background.border_width=1", "icon.background.border_color=0x26ffffff",
-                          "icon.background.y_offset=-1", "blur_radius=0", "shadow=off", "updates=off",
+                          "icon.background.y_offset=-1", "blur_radius=30", "shadow=off", "updates=off",
                           "--move", item, "before", "apple"]
         }
         let sent = applyTransaction?(arguments, widths, generation, publish) ?? (arguments.isEmpty || SketchyBarIPC.send(arguments) != nil)

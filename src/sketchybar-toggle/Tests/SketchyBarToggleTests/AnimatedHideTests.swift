@@ -40,7 +40,7 @@ final class AnimatedHideTests: XCTestCase {
         XCTAssertEqual(commands.count, 2)
         XCTAssertTrue(commands[0].contains("icon.background.color=0x00242426"))
         XCTAssertTrue(commands[0].contains("hidden=off"))
-        XCTAssertTrue(commands[1].contains("icon.background.color=0xff242426"))
+        XCTAssertTrue(commands[1].contains("icon.background.color=0x33242426"))
         XCTAssertTrue(commands[1].contains("icon.background.image.scale=0.65"))
         XCTAssertFalse(commands.flatMap { $0 }.contains { $0.hasPrefix("y_offset=-") })
     }
@@ -53,7 +53,7 @@ final class AnimatedHideTests: XCTestCase {
         commands.removeAll()
         controller.show()
         XCTAssertEqual(commands.count, 1)
-        XCTAssertTrue(commands[0].contains("icon.background.color=0xff242426"))
+        XCTAssertTrue(commands[0].contains("icon.background.color=0x33242426"))
         let finished = expectation(description: "cancelled fade deadline")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { finished.fulfill() }
         wait(for: [finished], timeout: 1)

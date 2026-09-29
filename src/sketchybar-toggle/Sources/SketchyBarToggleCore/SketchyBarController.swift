@@ -77,7 +77,7 @@ public final class SketchyBarController: BarController {
     private func fadeProperties(visible: Bool) -> [String] {
         let alpha = visible ? "ff" : "00"
         return [
-            "--set", "/menu_surface\\..*/", "icon.background.color=0x\(visible ? "ff" : "00")242426",
+            "--set", "/menu_surface\\..*/", "icon.background.color=0x\(visible ? "33" : "00")242426",
             "--set", "apple", "icon.color=0x\(alpha)f5f5f7",
             "--set", "front_app", "label.color=0x\(alpha)f5f5f7",
             "--set", "front_app_icon", "icon.background.image.scale=\(visible ? "0.65" : "0.0")",

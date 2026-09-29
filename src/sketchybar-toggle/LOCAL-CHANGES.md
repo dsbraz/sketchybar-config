@@ -22,8 +22,10 @@ native menu coverage and Space discovery. Hammerspoon is not used.
 - Mouse movement/clicks use passive NSEvent monitors with no periodic timer.
 - App names fit the available display geometry with a 16 pt gap before the notch
   or measured surface edge, using grapheme-safe pixel truncation and no text scrolling.
-- CompactBarLayout configures one opaque surface per display: x=6, y=2,
-  height=30, radius=10, color=0xff242426, no blur. The right edge follows that
+- CompactBarLayout configures one translucent surface per display: x=6, y=2,
+  height=30, radius=10, color=0x33242426, blur_radius=30. The 32 pt bar
+  ends aligned with the built-in display notch (safeAreaInsets.top=32);
+  only the top has a 2 pt gap. The right edge follows that
   display's last measured menu plus 12 points (minimum end 320, clamped to screen).
   Each display keeps its current measurement independently; disconnected displays
   are dropped. Unmeasured displays use the compact notch/center fallback until focus.
