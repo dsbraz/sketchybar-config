@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 static int cpu(host_cpu_load_info_data_t *value) {
   mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
@@ -36,7 +37,12 @@ static double gpu(void) {
   return usage;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+  int normalized = argc == 2 && strcmp(argv[1], "--normalized") == 0;
+  if (argc != 1 && !normalized) {
+    fputs("Usage: system_usage [--normalized]\n", stderr);
+    return 2;
+  }
   host_cpu_load_info_data_t before, after;
   if (!cpu(&before)) return 1;
   usleep(250000);
@@ -48,9 +54,17 @@ int main(void) {
     if (i == CPU_STATE_IDLE) idle = delta;
   }
   if (!total) return 1;
-  printf("%.0f ", 100.0 * (total - idle) / total);
+  double usage = 100.0 * (total - idle) / total;
   double graphics = gpu();
-  if (graphics < 0) puts("-");
-  else printf("%.0f\n", graphics);
+  if (normalized) {
+    // Keep the existing integer-percent graph resolution, normalized to 0..1.
+    printf("%.4f ", (int)(usage + 0.5) / 100.0);
+    if (graphics < 0) puts("-");
+    else printf("%.4f\n", (int)(graphics + 0.5) / 100.0);
+  } else {
+    printf("%.0f ", usage);
+    if (graphics < 0) puts("-");
+    else printf("%.0f\n", graphics);
+  }
   return 0;
 }

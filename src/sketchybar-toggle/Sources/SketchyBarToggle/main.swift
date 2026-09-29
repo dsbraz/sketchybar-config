@@ -5,12 +5,16 @@ import SketchyBarToggleCore
 
 let version = "0.5.0"
 
-if CommandLine.arguments.contains("--probe-native-menu") {
-    exit(NativeMenuMonitor.probe() ? 0 : 2)
+if CommandLine.arguments.contains("--probe-native-app") {
+    exit(NativeAppMonitor.probe() ? 0 : 2)
 }
 
 if CommandLine.arguments.contains("--probe-native-spaces") {
     exit(NativeSpaceMonitor.probe() ? 0 : 2)
+}
+
+if CommandLine.arguments.contains("--configure-compact-layout") {
+    exit(CompactBarLayout().refresh() ? 0 : 2)
 }
 
 // MARK: - Parse arguments
@@ -38,7 +42,7 @@ if config.showVersion {
 }
 
 if config.checkPermissions {
-    _ = NativeMenuMonitor.probe()
+    _ = NativeAppMonitor.probe()
     exit(0)
 }
 
@@ -49,21 +53,47 @@ if config.setup {
 
 // MARK: - Setup
 
-let nativeMenu = ProcessInfo.processInfo.environment["SKETCHYBAR_NATIVE_MENU"] == "1" ? NativeMenuMonitor() : nil
-if let nativeMenu {
-    _ = nativeMenu.start()
+let app = NSApplication.shared
+app.setActivationPolicy(.prohibited)
+let compactLayout = CompactBarLayout()
+_ = compactLayout.refresh()
+let nativeApp = ProcessInfo.processInfo.environment["SKETCHYBAR_NATIVE_APP"] == "1" ? NativeAppMonitor() : nil
+if let nativeApp {
+    compactLayout.applyTransaction = { arguments, widths, generation, publish in
+        nativeApp.applyLayout(arguments: arguments, widths: widths, generation: generation, publish: publish)
+    }
+}
+var currentLayoutGeneration: UInt64 = 0
+var currentMenuEnds: [CGDirectDisplayID: CGFloat] = [:]
+nativeApp?.onMenuChange = { ends, pid, generation in
+    DispatchQueue.main.async {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
+        currentLayoutGeneration = generation
+        currentMenuEnds = ends
+        _ = compactLayout.refresh(menuEnds: ends, generation: generation)
+        nativeApp?.refreshLayout()
+    }
+}
+if let nativeApp {
+    _ = nativeApp.start()
     if !AXIsProcessTrusted() {
         fputs("Enable SketchyBar Helper in System Settings > Privacy & Security > Accessibility.\n", stderr)
         _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
     }
 }
 let nativeSpaces = NativeSpaceMonitor()
+nativeSpaces.onLayoutChange = {
+    DispatchQueue.main.async {
+        _ = compactLayout.refresh(menuEnds: currentMenuEnds, generation: currentLayoutGeneration)
+        nativeApp?.refreshLayout()
+    }
+}
 nativeSpaces.start()
 let nativeEvents = NativeBarEvents()
-if !nativeEvents.start(onChange: { nativeSpaces.refresh(); nativeMenu?.refresh() }) {
-    fputs("Could not register native SketchyBar events; reconciliation remains active.\n", stderr)
+if !nativeEvents.start(onChange: { nativeSpaces.refresh(); nativeApp?.refresh() }) {
+    fputs("Could not register native SketchyBar events; Space updates will require restarting the helper.\n", stderr)
 }
-let controller = SketchyBarController(nativeMenu: nativeMenu)
+let controller = SketchyBarController(nativeApp: nativeApp)
 let stateMachine = BarStateMachine(
     controller: controller,
     triggerZone: config.triggerZone,
@@ -107,7 +137,7 @@ if config.debug || ProcessInfo.processInfo.environment["SKETCHYBAR_TOGGLE_DEBUG"
 }
 
 let monitor = EventTapMonitor(stateMachine: stateMachine, debugLog: debugLog)
-monitor.start()
+if !monitor.start() { fputs("Could not register mouse event monitors.\n", stderr) }
 
 print("sketchybar-toggle v\(version) running (trigger: \(Int(config.triggerZone))px, menu bar: \(Int(config.menuBarHeight))px, debounce: \(Int(config.debounce * 1000))ms)")
 if config.debug { print("Debug logging to /tmp/sketchybar-toggle-debug.log") }
@@ -115,7 +145,7 @@ print("Press Ctrl+C to stop.")
 
 // The native overlay deliberately keeps the macOS menu bar visible.
 // Upstream prerequisite checks only apply to the standalone toggle mode.
-if nativeMenu == nil {
+if nativeApp == nil {
     let checker = PrerequisiteChecker()
     let report = checker.check()
     if !report.allPassed {
@@ -128,8 +158,6 @@ if nativeMenu == nil {
 }
 
 // Run the main run loop — NSApplication needed for NSScreen
-let app = NSApplication.shared
-app.setActivationPolicy(.prohibited)
 app.run()
 
 // MARK: - Helpers
@@ -142,9 +170,10 @@ func printUsage() {
       --trigger-zone <px>       Pixels from top of screen to trigger hide (default: 10)
       --menu-bar-height <px>    Pixels from top defining menu bar zone (default: 50)
       --debounce <ms>           Debounce delay in milliseconds (default: 150)
-      --check-permissions       Check Accessibility for native menus
-      --probe-native-menu       Read native menu permission and geometry
+      --check-permissions       Check Accessibility for menus and window titles
+      --probe-native-app       Read native app permission
       --probe-native-spaces     Read native Spaces without changing the bar
+      --configure-compact-layout  Configure static left surfaces from display geometry
       --setup                   Check prerequisites and show auto-start instructions
       --debug                   Log events to /tmp/sketchybar-toggle-debug.log
       --version                 Print version and exit

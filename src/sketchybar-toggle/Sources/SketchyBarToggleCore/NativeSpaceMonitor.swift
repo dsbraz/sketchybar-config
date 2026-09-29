@@ -34,7 +34,8 @@ enum SpaceLayout {
 
 public final class NativeSpaceMonitor {
     private let queue = DispatchQueue(label: "sketchybar.native-spaces")
-    private var timer: DispatchSourceTimer?
+    private var screenObserver: NSObjectProtocol?
+    public var onLayoutChange: (() -> Void)?
     private var previous: [NativeSpace]?
     public init() {}
     static func snapshot() -> [NativeSpace]? {
@@ -47,14 +48,17 @@ public final class NativeSpaceMonitor {
         return true
     }
     public func start() {
-        let timer = DispatchSource.makeTimerSource(queue: queue)
-        // Reconcile topology too: adding an inactive desktop has no active-Space event.
-        timer.schedule(deadline: .now(), repeating: 2)
-        timer.setEventHandler { [weak self] in self?.update() }
-        self.timer = timer
-        timer.resume()
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: nil
+        ) { [weak self] _ in self?.refresh() }
+        refresh()
     }
-    public func refresh() { queue.async { [weak self] in self?.update() } }
+    public func refresh() {
+        queue.async { [weak self] in
+            self?.update()
+            self?.onLayoutChange?()
+        }
+    }
     private func update() {
         guard let spaces = Self.snapshot(), spaces != previous,
               let response = SketchyBarIPC.send(["--query", "bar"]),
@@ -70,12 +74,13 @@ public final class NativeSpaceMonitor {
             let name = "space.\(space.index)"
             if !items.contains(name) { args += ["--add", "space", name, "left"] }
             args += ["--set", name, "space=\(space.index)", "icon=\(space.index)",
-                     "icon.color=0xfff5f5f7", "icon.padding_left=9", "icon.padding_right=9",
-                     "label.drawing=off", "background.color=0xff3b99fc",
+                     "icon.color=0xfff5f5f7", "icon.highlight_color=0xfff5f5f7", "y_offset=-1", "icon.padding_left=9", "icon.padding_right=9",
+                     "label.drawing=off", "background.color=0x26ffffff",
+                     "background.height=20", "background.corner_radius=6",
                      "background.drawing=\(space.selected ? "on" : "off")", "script=", "updates=off"]
         }
-        args += ["--reorder", "apple"] + spaces.map { "space.\($0.index)" } + ["front_app"]
+        args += ["--reorder", "apple"] + spaces.map { "space.\($0.index)" } + ["front_app_icon", "front_app"]
         if SketchyBarIPC.send(args) != nil { previous = spaces }
     }
-    deinit { timer?.cancel() }
+    deinit { if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) } }
 }

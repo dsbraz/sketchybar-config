@@ -1,47 +1,57 @@
 #!/bin/bash
 export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+PLUGIN_DIR="$CONFIG_DIR/plugins"
 
 sketchybar --bar position=top height=32 notch_display_height=32 \
-  color=0x00000000 blur_radius=0 margin=0 corner_radius=0 padding_left=8 padding_right=0 \
+  color=0x00000000 blur_radius=0 margin=0 corner_radius=0 padding_left=4 padding_right=4 \
   display=all sticky=on topmost=on shadow=off
 
 sketchybar --default \
-  icon.font=".AppleSystemUIFont:Bold:13.0" label.font=".AppleSystemUIFont:Bold:13.0" \
-  icon.color=0xffa1a1aa label.color=0xfff5f5f7 \
-  padding_left=6 padding_right=6 y_offset=-2 \
+  icon.font=".AppleSystemUIFont:Medium:12.0" label.font=".AppleSystemUIFont:Semibold:13.0" \
+  icon.color=0xfff5f5f7 icon.highlight_color=0xfff5f5f7 label.color=0xfff5f5f7 \
+  padding_left=6 padding_right=6 y_offset=-1 \
   icon.padding_left=4 icon.padding_right=4 \
   label.padding_left=4 label.padding_right=4 \
   background.height=24 background.corner_radius=6
 
 sketchybar --add item apple left \
-  --set apple padding_left=6 icon="" icon.font=".AppleSystemUIFont:Regular:21.0" \
+  --set apple padding_left=12 y_offset=-1 icon.y_offset=0 icon="" icon.font=".AppleSystemUIFont:Regular:21.0" \
     icon.color=0xfff5f5f7 label.drawing=off
 
 # Discover native Spaces across the currently connected displays.
 sketchybar --add item spaces_observer left \
   --set spaces_observer drawing=off updates=on update_freq=0
 
+# Create the initial Space items before --update so SketchyBar associates them
+# with their displays before the helper calculates the app-name width. One startup
+# snapshot only; subsequent changes arrive through native events.
+if [ -x "$CONFIG_DIR/bin/sketchybar-toggle" ]; then
+  initial_spaces=$("$CONFIG_DIR/bin/sketchybar-toggle" --probe-native-spaces)
+  initial_spaces=${initial_spaces%% *}
+  IFS=, read -r -a space_ids <<< "${initial_spaces#spaces=}"
+  for sid in "${space_ids[@]}"; do
+    [[ "$sid" =~ ^[0-9]+$ ]] || continue
+    sketchybar --add space "space.$sid" left \
+      --set "space.$sid" space="$sid" icon="$sid" \
+        icon.padding_left=9 icon.padding_right=9 label.drawing=off \
+        background.color=0x26ffffff background.height=20 background.corner_radius=6 background.drawing=off updates=off
+  done
+fi
+
+# Keep the app image separate so name/layout changes do not reload the icon.
+sketchybar --add item front_app_icon left \
+  --set front_app_icon icon.width=24 icon.background.drawing=on \
+    icon.background.image.scale=0.65 label.drawing=off \
+    padding_left=14 padding_right=0 updates=off
+
 sketchybar --add item front_app left \
-  --set front_app icon.drawing=on icon.width=24 icon.background.drawing=on \
-    icon.background.image.scale=0.65 \
-    label="" label.max_chars=50 label.padding_right=20 scroll_texts=on \
-    padding_left=14 padding_right=12 \
+  --set front_app icon.drawing=off \
+    label="" label.max_chars=0 label.padding_right=20 scroll_texts=off \
+    padding_left=0 padding_right=12 \
     updates=off update_freq=0
 
-# Cover both the left-side content and the active application's native menus.
-sketchybar --add item left_edge left \
-  --set left_edge width=0 padding_left=0 padding_right=0 \
-    icon.drawing=off label.drawing=off \
-  --move left_edge before apple \
-  --add item menu_cover_end left \
-  --set menu_cover_end width=0 padding_left=0 padding_right=0 \
-    icon="" icon.drawing=on icon.width=0 icon.padding_left=0 icon.padding_right=0 \
-    label.drawing=off \
-  --move menu_cover_end after left_edge \
-  --add bracket left_backdrop left_edge front_app menu_cover_end \
-  --set left_backdrop background.color=0xff242426 background.drawing=on y_offset=-2 \
-    background.height=28 background.corner_radius=8 \
-    background.padding_left=0 background.padding_right=8 blur_radius=0 shadow=off
+# Rounded startup fallback; the helper adjusts coverage on app/window events.
+"$CONFIG_DIR/bin/sketchybar-toggle" --configure-compact-layout
 
 sketchybar --update
 
@@ -57,6 +67,6 @@ for attempt in {1..30}; do
   sleep 0.1
 done
 /usr/bin/open -g "$CONFIG_DIR/bin/SketchyBar Helper.app" \
-  --env SKETCHYBAR_TRANSITION=smooth-slide --env SKETCHYBAR_NATIVE_MENU=1 \
+  --env SKETCHYBAR_TRANSITION=smooth-slide --env SKETCHYBAR_NATIVE_APP=1 \
   --stdout /private/tmp/sketchybar-toggle.log --stderr /private/tmp/sketchybar-toggle.log \
   --args --trigger-zone 30 --menu-bar-height 33 --debounce 150

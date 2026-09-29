@@ -1,16 +1,18 @@
 #!/bin/sh
+# Normalize in the collector, then push both histories in one bar transaction.
+samples=$("$CONFIG_DIR/bin/system_usage" --normalized) || exit 1
 read -r cpu gpu <<EOF
-$("$CONFIG_DIR/bin/system_usage")
+$samples
 EOF
 
-# Graph samples use a fixed 0..1 scale for percentage usage.
+set --
 for metric in cpu gpu; do
   case "$metric" in cpu) value=$cpu ;; gpu) value=$gpu ;; esac
-  sample=$(LC_ALL=C awk -v value="$value" 'BEGIN {
-    if (value !~ /^[0-9]+([.][0-9]+)?$/) exit 1
-    value /= 100
-    if (value > 1) value = 1
-    printf "%.4f", value
-  }') || continue
-  sketchybar --push "$metric" "$sample"
+  case "$value" in
+    0.[0-9][0-9][0-9][0-9]|1.0000) set -- "$@" --push "$metric" "$value" ;;
+    *) continue ;; # Unavailable or malformed values must not become zero.
+  esac
 done
+
+# Repeated samples still advance graph history, even if utilization is unchanged.
+if [ "$#" -gt 0 ]; then sketchybar "$@"; fi

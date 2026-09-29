@@ -1,82 +1,57 @@
-import CoreGraphics
 import AppKit
-import Foundation
 
-/// Monitors mouse position by polling NSEvent.mouseLocation on a timer.
-/// This approach requires no special permissions (no Input Monitoring or Accessibility).
+/// Passive mouse notifications: no timer, event suppression or keyboard capture.
 public final class EventTapMonitor {
     private let stateMachine: BarStateMachine
     private let debugLog: ((String) -> Void)?
-    private var pollTimer: DispatchSourceTimer?
-    private let pollInterval: TimeInterval
-    private var pollCount = 0
-    private var wasMouseDown = false
+    private var globalMonitor: Any?
+    private var localMonitor: Any?
+    private var screenObserver: NSObjectProtocol?
+    private var screenFrames: [NSRect] = []
 
-    public init(
-        stateMachine: BarStateMachine,
-        debugLog: ((String) -> Void)? = nil,
-        pollInterval: TimeInterval = 0.016  // ~60 Hz
-    ) {
+    public init(stateMachine: BarStateMachine, debugLog: ((String) -> Void)? = nil) {
         self.stateMachine = stateMachine
         self.debugLog = debugLog
-        self.pollInterval = pollInterval
     }
 
-    /// Start monitoring mouse position. Always returns true (no permissions needed).
-    @discardableResult
-    public func start() -> Bool {
-        let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now(), repeating: pollInterval)
-        timer.setEventHandler { [weak self] in
-            self?.pollMousePosition()
+    @discardableResult public func start() -> Bool {
+        stop()
+        screenFrames = NSScreen.screens.map(\.frame)
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.screenFrames = NSScreen.screens.map(\.frame)
+            self?.handlePosition()
         }
-        pollTimer = timer
-        timer.resume()
-        debugLog?("polling started at \(Int(1.0 / pollInterval)) Hz")
-        return true
+        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .leftMouseDown]
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
+            self?.handlePosition(click: event.type == .leftMouseDown)
+        }
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+            self?.handlePosition(click: event.type == .leftMouseDown)
+            return event
+        }
+        handlePosition()
+        debugLog?("mouse event monitors installed")
+        return globalMonitor != nil && localMonitor != nil
     }
 
     public func stop() {
-        pollTimer?.cancel()
-        pollTimer = nil
+        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
+        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        globalMonitor = nil
+        localMonitor = nil
+        screenObserver = nil
     }
 
-    private func pollMousePosition() {
-        // NSEvent.mouseLocation is in NS coordinates (origin bottom-left)
-        let mouseNS = NSEvent.mouseLocation
-        guard let screen = screenForNSPoint(mouseNS) else {
-            return
-        }
-
-        // Convert to distance from top of screen
-        let screenTopNS = screen.frame.origin.y + screen.frame.height
-        let distanceFromTop = screenTopNS - mouseNS.y
-
-        pollCount += 1
-        if distanceFromTop < 60 || pollCount <= 3 || pollCount % 1000 == 0 {
-            debugLog?("poll#\(pollCount) dist=\(Int(distanceFromTop)) state=\(stateMachine.state)")
-        }
-
-        // Detect mouse button press (bit 0 = left button)
-        let isMouseDown = NSEvent.pressedMouseButtons & 0x1 != 0
-        if isMouseDown && !wasMouseDown {
-            debugLog?("poll#\(pollCount) click detected dist=\(Int(distanceFromTop)) state=\(stateMachine.state)")
-            stateMachine.handleMouseClick(distanceFromTop: distanceFromTop)
-        }
-        wasMouseDown = isMouseDown
-
-        stateMachine.handleMousePosition(distanceFromTop: distanceFromTop)
+    private func handlePosition(click: Bool = false) {
+        let point = NSEvent.mouseLocation
+        guard let frame = screenFrames.first(where: { $0.contains(point) }) else { return }
+        let distance = frame.maxY - point.y
+        if click { stateMachine.handleMouseClick(distanceFromTop: distance) }
+        stateMachine.handleMousePosition(distanceFromTop: distance)
     }
 
-    // MARK: - Screen geometry helpers
-
-    private func screenForNSPoint(_ nsPoint: NSPoint) -> NSScreen? {
-        for screen in NSScreen.screens {
-            // Expand by 1px to include screen edges (NSRect.contains uses half-open intervals)
-            if screen.frame.insetBy(dx: -1, dy: -1).contains(nsPoint) {
-                return screen
-            }
-        }
-        return nil
-    }
+    deinit { stop() }
 }

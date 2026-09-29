@@ -8,6 +8,7 @@ public final class SketchyBarController: BarController {
     private let useFade: Bool
     private let useSmoothSlide: Bool
     private var isHidden = true
+    private var backdrop: NativeBackdrop?
 
     init(commandRunner: @escaping ([String]) -> Void, prepareToShow: @escaping () -> Void = {}, useFade: Bool = false, useSmoothSlide: Bool = false) {
         self.commandRunner = commandRunner
@@ -16,14 +17,16 @@ public final class SketchyBarController: BarController {
         self.useSmoothSlide = useSmoothSlide
     }
 
-    public init(nativeMenu: NativeMenuMonitor? = nil) {
+    public init(nativeApp: NativeAppMonitor? = nil, backdrop: NativeBackdrop? = nil) {
+        self.backdrop = backdrop
         self.useFade = ProcessInfo.processInfo.environment["SKETCHYBAR_TRANSITION"] == "fade"
         self.useSmoothSlide = ProcessInfo.processInfo.environment["SKETCHYBAR_TRANSITION"] == "smooth-slide"
-        self.prepareToShow = { nativeMenu?.prepareToShow() }
+        self.prepareToShow = { nativeApp?.prepareToShow() }
     }
 
     public func hide() {
         pendingHide?.cancel()
+        backdrop?.hide(duration: useSmoothSlide ? 16.0 / 60.0 : 0.15)
         // Smooth slide: 16 frames (~267 ms); fade: 18; full slide: 9.
         if useFade {
             run(arguments: ["--animate", "sin", "18"] + fadeProperties(visible: false))
@@ -34,6 +37,7 @@ public final class SketchyBarController: BarController {
         }
         let completion = DispatchWorkItem { [weak self] in
             self?.run(arguments: ["--bar", "hidden=on", "y_offset=0"])
+            self?.backdrop?.finishHide()
             self?.isHidden = true
             self?.pendingHide = nil
         }
@@ -46,9 +50,10 @@ public final class SketchyBarController: BarController {
         pendingHide = nil
         // Complete the layout update while still hidden, before the first frame.
         prepareToShow()
+        backdrop?.show(duration: useSmoothSlide ? 16.0 / 60.0 : 0.2)
         if useSmoothSlide {
             if isHidden {
-                run(arguments: fadeProperties(visible: true) + ["--bar", "hidden=off", "y_offset=-32"])
+                run(arguments: ["--bar", "hidden=off", "y_offset=-32"])
             }
             isHidden = false
             run(arguments: ["--animate", "sin", "16", "--bar", "y_offset=0"])
@@ -72,12 +77,11 @@ public final class SketchyBarController: BarController {
     private func fadeProperties(visible: Bool) -> [String] {
         let alpha = visible ? "ff" : "00"
         return [
-            "--set", "left_backdrop", "background.color=0x\(alpha)242426",
+            "--set", "/menu_surface\\..*/", "icon.background.color=0x\(visible ? "ff" : "00")242426",
             "--set", "apple", "icon.color=0x\(alpha)f5f5f7",
             "--set", "front_app", "label.color=0x\(alpha)f5f5f7",
-            "icon.background.image.scale=\(visible ? "0.65" : "0.0")",
-            "--set", "/^space\\.[0-9]+$/", "icon.color=0x\(alpha)f5f5f7",
-            "background.color=0x\(alpha)3b99fc"
+            "--set", "front_app_icon", "icon.background.image.scale=\(visible ? "0.65" : "0.0")",
+            "--set", "/space\\..*/", "icon.color=0x\(alpha)f5f5f7"
         ]
     }
 
