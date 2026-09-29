@@ -2,6 +2,18 @@ import XCTest
 @testable import SketchyBarToggleCore
 
 final class AnimatedHideTests: XCTestCase {
+    func testLayoutIsPreparedBeforeFirstVisibleFrame() {
+        var prepared = false
+        var commands: [[String]] = []
+        let controller = SketchyBarController(commandRunner: { command in
+            XCTAssertTrue(prepared, "Layout must be ready before unhiding or animating")
+            commands.append(command)
+        }, prepareToShow: { prepared = true })
+        controller.show()
+        XCTAssertTrue(prepared)
+        XCTAssertEqual(commands.count, 2)
+    }
+
     func testHideWaitsForAnimation() {
         var commands: [[String]] = []
         let controller = SketchyBarController { commands.append($0) }
